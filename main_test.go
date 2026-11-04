@@ -60,3 +60,55 @@ func TestDecodeLatin1(t *testing.T) {
 		t.Fatalf("latin1 = %q", got)
 	}
 }
+
+func TestEndSequence(t *testing.T) {
+	cases := []struct {
+		name string
+		c    config
+		want []byte
+	}{
+		{
+			name: "normal ohne cut: nur vorschub",
+			c:    config{feed: 3},
+			want: []byte{esc, 'd', 3},
+		},
+		{
+			name: "normal mit cut",
+			c:    config{feed: 2, cut: true},
+			want: []byte{esc, 'd', 2, gs, 'V', 66, 0},
+		},
+		{
+			name: "follow ohne cut-on-exit: nichts",
+			c:    config{follow: true, feed: 3},
+			want: nil,
+		},
+		{
+			name: "follow mit cut (wird ignoriert)",
+			c:    config{follow: true, feed: 3, cut: true},
+			want: nil,
+		},
+		{
+			name: "follow mit cut-on-exit",
+			c:    config{follow: true, feed: 3, cutOnExit: true},
+			want: []byte{esc, 'd', 3, gs, 'V', 66, 0},
+		},
+		{
+			name: "normal mit cut-on-exit",
+			c:    config{feed: 1, cutOnExit: true},
+			want: []byte{esc, 'd', 1, gs, 'V', 66, 0},
+		},
+		{
+			name: "feed 0 mit cut",
+			c:    config{feed: 0, cut: true},
+			want: []byte{esc, 'd', 0, gs, 'V', 66, 0},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := endSequence(&tc.c)
+			if !bytes.Equal(got, tc.want) {
+				t.Fatalf("endSequence = % x, want % x", got, tc.want)
+			}
+		})
+	}
+}

@@ -21,8 +21,11 @@ Folgezeilen werden um zwei Leerzeichen eingerückt. Sehr lange Wörter
 werden hart getrennt; umbrochen wird bevorzugt an Wortgrenzen.
 .PP
 Im Normalbetrieb wird am Ende nur Papier vorgeschoben, nicht geschnitten.
-Ein Schnitt erfolgt ausschließlich mit der Option
-.BR \-cut .
+Ein Schnitt erfolgt mit
+.B \-cut
+(nach einem einmaligen Lauf) oder mit
+.B \-cut\-on\-exit
+(auch beim Beenden eines Follow-Laufs).
 .PP
 ANSI-Farbcodes, Steuerzeichen und häufige Unicode-Sonderzeichen werden
 entfernt bzw. ersetzt, damit Log-Inhalte keine ESC/POS-Befehle
@@ -101,7 +104,16 @@ Keinen Kopf mit Dateiname, Startzeit und Spaltenbreite drucken.
 Anzahl der Zeilen, die am Ende vorgeschoben werden. Standard: 3.
 .TP
 .B \-cut
-Am Ende einen Teilschnitt ausführen. Standard: kein Schnitt.
+Am Ende eines einmaligen Laufs einen Teilschnitt ausführen. Standard: kein
+Schnitt. Im Follow-Modus wird diese Option ignoriert; dort
+.B \-cut\-on\-exit
+verwenden.
+.TP
+.B \-cut\-on\-exit
+Beim Beenden Vorschub und Teilschnitt senden, auch im Follow-Modus
+(z. B. nach Ctrl-C oder SIGTERM). Nicht bei SIGKILL oder Stromausfall.
+Die Anzahl der Vorschubzeilen steuert
+.BR \-feed .
 .TP
 .BI \-max\-lines " N"
 Nach
@@ -124,6 +136,10 @@ Nur neue Zeilen drucken, der Datei laufend folgen.
 .TP
 .B logprint \-f \-from\-start /var/log/myapp.log
 Erst den vorhandenen Inhalt drucken, dann weiter folgen.
+.TP
+.B logprint \-f \-cut\-on\-exit /var/log/myapp.log
+Der Datei folgen und beim Beenden (Ctrl-C/SIGTERM) noch Vorschub und
+Teilschnitt senden.
 .TP
 .B tail \-F /var/log/syslog | logprint \-
 Aus einer Pipe drucken; eignet sich auch für Log-Rotation durch

@@ -60,6 +60,7 @@ type config struct {
 	noHeader      bool
 	feed          int
 	cut           bool
+	cutOnExit     bool
 	maxLines      int
 }
 
@@ -295,6 +296,20 @@ func printHeader(p *printer, c *config) error {
 	return nil
 }
 
+// endSequence liefert die Bytes, die beim Beenden noch an den Drucker gehen.
+// Normalbetrieb: Vorschub und optional Cut.
+// Follow-Modus: nur mit -cut-on-exit (Vorschub + Cut).
+func endSequence(c *config) []byte {
+	var out []byte
+	if !c.follow || c.cutOnExit {
+		out = append(out, esc, 'd', byte(c.feed))
+	}
+	if c.cutOnExit || (!c.follow && c.cut) {
+		out = append(out, gs, 'V', 66, 0)
+	}
+	return out
+}
+
 func streamFile(p *printer, c *config, stop <-chan struct{}) (int, error) {
 	var f *os.File
 	own := false
@@ -425,7 +440,8 @@ func parseFlags() (*config, error) {
 	flag.BoolVar(&c.timestamps, "timestamps", false, "jede Zeile mit [HH:MM:SS] prefixen")
 	flag.BoolVar(&c.noHeader, "no-header", false, "keinen Kopf mit Dateiname/Startzeit drucken")
 	flag.IntVar(&c.feed, "feed", 3, "Zeilen Vorschub am Ende")
-	flag.BoolVar(&c.cut, "cut", false, "am Ende schneiden (Default: nicht schneiden)")
+	flag.BoolVar(&c.cut, "cut", false, "am Ende eines einmaligen Drucks schneiden (Default: nicht schneiden)")
+	flag.BoolVar(&c.cutOnExit, "cut-on-exit", false, "beim Beenden Vorschub + Cut senden, auch im Follow-Modus (Ctrl-C/SIGTERM)")
 	flag.IntVar(&c.maxLines, "max-lines", 0, "nach N Zeilen aufhoeren (0 = unbegrenzt)")
 
 	flag.Usage = func() {
@@ -525,11 +541,8 @@ func main() {
 		fmt.Fprintln(os.Stderr, "logprint:", err)
 	}
 
-	if !c.follow {
-		_ = p.send([]byte{esc, 'd', byte(c.feed)})
-		if c.cut {
-			_ = p.send([]byte{gs, 'V', 66, 0})
-		}
+	if seq := endSequence(c); len(seq) > 0 {
+		_ = p.send(seq)
 	}
 	p.close()
 

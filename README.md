@@ -43,6 +43,12 @@ CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o logprint.exe .
 
 # aus einer Pipe
 tail -F /var/log/syslog | ./logprint -
+
+# beim Beenden von -f (Ctrl-C/SIGTERM) noch schneiden
+./logprint -f -cut-on-exit /var/log/myapp.log
+
+# einmalig drucken und am Ende schneiden
+./logprint -cut /var/log/syslog
 ```
 
 ## Optionen
@@ -61,7 +67,8 @@ tail -F /var/log/syslog | ./logprint -
 | `-timestamps` | jede Zeile mit `[HH:MM:SS]` prefixen |
 | `-no-header` | keinen Kopf mit Dateiname/Startzeit drucken |
 | `-feed 3` | Zeilen Vorschub am Ende |
-| `-cut` | am Ende schneiden (Default: aus) |
+| `-cut` | am Ende eines einmaligen Drucks schneiden (Default: aus) |
+| `-cut-on-exit` | beim Beenden Vorschub + Cut senden, auch bei `-f` (Ctrl-C/SIGTERM) |
 | `-max-lines N` | nach N Zeilen aufhören |
 
 ## Hinweise
