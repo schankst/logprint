@@ -1,13 +1,14 @@
 package main
+
 // Code generated from Python codecs; DO NOT EDIT.
 // Decoding tables for Epson ESC/POS character code pages.
 
 var codepageNumbers = map[string]byte{
-	"cp437": 0,
-	"cp850": 2,
-	"cp852": 18,
-	"cp858": 19,
-	"cp866": 17,
+	"cp437":  0,
+	"cp850":  2,
+	"cp852":  18,
+	"cp858":  19,
+	"cp866":  17,
 	"cp1252": 16,
 }
 
@@ -222,10 +223,10 @@ var cp1252Decode = [256]rune{
 }
 
 var codepageTables = map[string]*[256]rune{
-	"cp437": &cp437Decode,
-	"cp850": &cp850Decode,
-	"cp852": &cp852Decode,
-	"cp858": &cp858Decode,
-	"cp866": &cp866Decode,
+	"cp437":  &cp437Decode,
+	"cp850":  &cp850Decode,
+	"cp852":  &cp852Decode,
+	"cp858":  &cp858Decode,
+	"cp866":  &cp866Decode,
 	"cp1252": &cp1252Decode,
 }

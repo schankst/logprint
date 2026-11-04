@@ -1,5 +1,7 @@
 # logprint (Go)
 
+[![CI](https://github.com/schankst/logprint/actions/workflows/ci.yml/badge.svg)](https://github.com/schankst/logprint/actions/workflows/ci.yml)
+
 Druckt Logdateien auf einem Epson TM-T20IV (ESC/POS über TCP 9100).
 
 - bricht lange Zeilen auf die Papierbreite um (Default: 48 Zeichen, Font A, 80 mm)
@@ -105,3 +107,9 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 ```
+
+## Lizenz
+
+MIT – siehe [LICENSE](LICENSE).
+
+Copyright (c) 2026 Stefan Schank
