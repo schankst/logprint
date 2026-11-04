@@ -460,6 +460,23 @@ Beispiele:
 Optionen:
 `)
 		flag.PrintDefaults()
+		fmt.Fprint(flag.CommandLine.Output(), `
+Standardwerte ohne Optionen:
+  Ziel:            192.168.1.185:9100
+  Modus:           einmalig (kein Follow)
+  Startposition:   Dateianfang
+  Zeilenbreite:    48 Zeichen (Font A)
+  Font:            a
+  Einrückung:      2 Leerzeichen
+  Codepage:        cp858
+  Input-Encoding:  utf-8
+  Kopf:            an
+  Zeitstempel:     aus
+  Vorschub:        3 Zeilen
+  Cut:             aus
+  Cut on exit:     aus
+  Max. Zeilen:     unbegrenzt
+`)
 	}
 
 	flag.Parse()

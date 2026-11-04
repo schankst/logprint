@@ -44,12 +44,13 @@ TCP-Port des RAW-Drucks. Standard:
 .BR \-f ", " \-follow
 Der Datei wie
 .B tail \-f
-folgen und nur neue Zeilen drucken.
+folgen und nur neue Zeilen drucken. Standard: aus (einmaliger Lauf).
 .TP
 .B \-from-start
 Nur zusammen mit
 .BR \-follow :
 zuerst den bereits vorhandenen Dateiinhalt drucken, dann folgen.
+Standard: aus.
 .TP
 .BI \-width " N"
 Zeichen pro Zeile. Standard: 48 bei Font A, 64 bei Font B.
@@ -95,10 +96,11 @@ Standard:
 .B \-timestamps
 Jede Zeile mit einem Zeitstempel der Form
 .B [HH:MM:SS]
-präfixen.
+präfixen. Standard: aus.
 .TP
 .B \-no\-header
-Keinen Kopf mit Dateiname, Startzeit und Spaltenbreite drucken.
+Keinen Kopf mit Dateiname, Startzeit und Spaltenbreite drucken. Standard:
+aus (der Kopf wird gedruckt).
 .TP
 .BI \-feed " N"
 Anzahl der Zeilen, die am Ende vorgeschoben werden. Standard: 3.
@@ -114,11 +116,12 @@ Beim Beenden Vorschub und Teilschnitt senden, auch im Follow-Modus
 (z. B. nach Ctrl-C oder SIGTERM). Nicht bei SIGKILL oder Stromausfall.
 Die Anzahl der Vorschubzeilen steuert
 .BR \-feed .
+Standard: aus.
 .TP
 .BI \-max\-lines " N"
 Nach
 .I N
-gedruckten Zeilen aufhören (0 = unbegrenzt).
+gedruckten Zeilen aufhören. Standard: 0 (unbegrenzt).
 .TP
 .BR \-h ", " \-help
 Kurzhilfe mit allen Optionen anzeigen.
@@ -126,6 +129,55 @@ Kurzhilfe mit allen Optionen anzeigen.
 Langoptionen können alternativ mit zwei Bindestrichen geschrieben werden
 (z. B.
 .BR \-\-follow ).
+.SH STANDARDWERTE
+Werden keine Optionen angegeben, gilt:
+.TP
+.B Ziel
+192.168.1.185:9100
+.TP
+.B Modus
+einmalig, Datei komplett drucken (kein Follow)
+.TP
+.B Startposition
+Dateianfang
+.TP
+.B Zeilenbreite
+48 Zeichen (Font A, 80 mm)
+.TP
+.B Font
+a
+.TP
+.B Einrückung
+zwei Leerzeichen
+.TP
+.B Codepage
+cp858 (Umlaute und Euro)
+.TP
+.B Input-Encoding
+utf-8
+.TP
+.B Kopf
+an (Dateiname, Startzeit, Spaltenbreite)
+.TP
+.B Zeitstempel
+aus
+.TP
+.B Vorschub am Ende
+3 Zeilen
+.TP
+.B Schnitt am Ende
+aus
+.TP
+.B Schnitt beim Beenden
+aus
+.TP
+.B Maximale Zeilenzahl
+unbegrenzt
+.PP
+Konkret: Ohne Optionen druckt
+.B logprint
+eine Datei einmalig vollständig, mit Kopf, 48 Zeichen pro Zeile,
+ohne Zeitstempel, mit drei Zeilen Vorschub und ohne Schnitt.
 .SH BEISPIELE
 .TP
 .B logprint /var/log/syslog

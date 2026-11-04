@@ -51,25 +51,50 @@ tail -F /var/log/syslog | ./logprint -
 ./logprint -cut /var/log/syslog
 ```
 
+## Standardwerte
+
+Werden keine Optionen angegeben, gilt:
+
+| Einstellung | Standard |
+|---|---|
+| Ziel | `192.168.1.185:9100` |
+| Modus | einmalig, Datei komplett drucken (kein Follow) |
+| Startposition | Dateianfang |
+| Zeilenbreite | 48 Zeichen (Font A, 80 mm) |
+| Font | `a` |
+| Einrückung | 2 Leerzeichen |
+| Codepage | `cp858` (Umlaute + Euro) |
+| Input-Encoding | `utf-8` |
+| Kopf mit Dateiname/Startzeit | an |
+| Zeitstempel pro Zeile | aus |
+| Vorschub am Ende | 3 Zeilen |
+| Schnitt am Ende | aus |
+| Schnitt beim Beenden | aus |
+| Maximale Zeilenzahl | unbegrenzt |
+
+Konkret bedeutet das: `logprint /var/log/app.log` druckt die Datei
+einmalig vollständig, mit Kopf, 48 Zeichen pro Zeile, ohne Zeitstempel,
+mit 3 Zeilen Vorschub und **ohne Schnitt**.
+
 ## Optionen
 
-| Option | Bedeutung |
-|---|---|
-| `-host 192.168.1.185` | IP-Adresse des Druckers |
-| `-port 9100` | TCP-Port |
-| `-f`, `-follow` | wie `tail -f` folgen |
-| `-from-start` | mit `-f` zuerst vorhandenen Inhalt drucken |
-| `-width 48` | Zeichen pro Zeile (Default: 48 bei Font A, 64 bei Font B) |
-| `-font b` | Font B (64 Spalten, kleinere Schrift) |
-| `-indent "  "` | Einrückung für umgebrochene Folgezeilen (`""` = keine) |
-| `-codepage cp858` | Zeichensatz: `cp437`, `cp850`, `cp852`, `cp858`, `cp866`, `cp1252` |
-| `-input-encoding utf-8` | Encoding der Logdatei: `utf-8`, `latin1`, `cp1252`, … |
-| `-timestamps` | jede Zeile mit `[HH:MM:SS]` prefixen |
-| `-no-header` | keinen Kopf mit Dateiname/Startzeit drucken |
-| `-feed 3` | Zeilen Vorschub am Ende |
-| `-cut` | am Ende eines einmaligen Drucks schneiden (Default: aus) |
-| `-cut-on-exit` | beim Beenden Vorschub + Cut senden, auch bei `-f` (Ctrl-C/SIGTERM) |
-| `-max-lines N` | nach N Zeilen aufhören |
+| Option | Bedeutung | Default |
+|---|---|---|
+| `-host HOST` | IP-Adresse oder Hostname des Druckers | `192.168.1.185` |
+| `-port PORT` | TCP-Port des RAW-Drucks | `9100` |
+| `-f`, `-follow` | wie `tail -f` folgen | aus (einmaliger Lauf) |
+| `-from-start` | mit `-f` zuerst vorhandenen Inhalt drucken | aus |
+| `-width N` | Zeichen pro Zeile | `48` (Font A), `64` (Font B) |
+| `-font a\|b` | Schriftart | `a` |
+| `-indent STRING` | Einrückung für umgebrochene Folgezeilen | `"  "` (2 Leerzeichen) |
+| `-codepage NAME` | Zeichensatz: `cp437`, `cp850`, `cp852`, `cp858`, `cp866`, `cp1252` | `cp858` |
+| `-input-encoding NAME` | Encoding der Logdatei: `utf-8`, `latin1`, `cp1252`, … | `utf-8` |
+| `-timestamps` | jede Zeile mit `[HH:MM:SS]` prefixen | aus |
+| `-no-header` | keinen Kopf mit Dateiname/Startzeit drucken | aus (Kopf wird gedruckt) |
+| `-feed N` | Zeilen Vorschub am Ende | `3` |
+| `-cut` | am Ende eines einmaligen Drucks schneiden | aus |
+| `-cut-on-exit` | beim Beenden Vorschub + Cut senden, auch bei `-f` (Ctrl-C/SIGTERM) | aus |
+| `-max-lines N` | nach N Zeilen aufhören | `0` (unbegrenzt) |
 
 ## Hinweise
 
