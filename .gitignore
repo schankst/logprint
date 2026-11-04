@@ -1,0 +1,11 @@
+# Build-Artefakte
+/logprint
+/logprint-*
+/dist/
+*.exe
+*.test
+*.out
+
+# Editor/OS
+.DS_Store
+*.swp

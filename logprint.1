@@ -1,0 +1,181 @@
+.\" Manpage for logprint
+.\" Copyright (c) 2026 Stefan Schank
+.TH LOGPRINT 1 "2026-11-04" "logprint 1.0.0" "User Commands"
+.SH NAME
+logprint \- Logdateien auf einem Epson TM-T20IV drucken
+.SH SYNOPSIS
+.B logprint
+[\fIOPTIONEN\fR] \fIDATEI\fR
+.br
+.B logprint
+[\fIOPTIONEN\fR] \fB\-\fR
+.SH BESCHREIBUNG
+.B logprint
+liest eine Logdatei (oder die Standardeingabe) und druckt sie auf einem
+Epson TM-T20IV (oder einem kompatiblen ESC/POS-Bondrucker) über den
+RAW-Port 9100 aus.
+.PP
+Die Zeilen werden bereits vor dem Senden an den Drucker umbrochen.
+Standardmäßig sind das 48 Zeichen pro Zeile (Font A, 80-mm-Papier).
+Folgezeilen werden um zwei Leerzeichen eingerückt. Sehr lange Wörter
+werden hart getrennt; umbrochen wird bevorzugt an Wortgrenzen.
+.PP
+Im Normalbetrieb wird am Ende nur Papier vorgeschoben, nicht geschnitten.
+Ein Schnitt erfolgt ausschließlich mit der Option
+.BR \-cut .
+.PP
+ANSI-Farbcodes, Steuerzeichen und häufige Unicode-Sonderzeichen werden
+entfernt bzw. ersetzt, damit Log-Inhalte keine ESC/POS-Befehle
+einschleusen können. Die Ausgabe erfolgt standardmäßig in CP858
+(deutsche Umlaute und Euro).
+.SH OPTIONEN
+.TP
+.BI \-host " HOST"
+IP-Adresse oder Hostname des Druckers. Standard:
+.IR 192.168.1.185 .
+.TP
+.BI \-port " PORT"
+TCP-Port des RAW-Drucks. Standard:
+.IR 9100 .
+.TP
+.BR \-f ", " \-follow
+Der Datei wie
+.B tail \-f
+folgen und nur neue Zeilen drucken.
+.TP
+.B \-from-start
+Nur zusammen mit
+.BR \-follow :
+zuerst den bereits vorhandenen Dateiinhalt drucken, dann folgen.
+.TP
+.BI \-width " N"
+Zeichen pro Zeile. Standard: 48 bei Font A, 64 bei Font B.
+Für 58-mm-Papier sind 32 (Font A) bzw. 42 (Font B) üblich.
+.TP
+.BI \-font " a|b"
+Schriftart:
+.B a
+(48 Spalten) oder
+.B b
+(64 Spalten, kleinere Schrift). Standard:
+.BR a .
+.TP
+.BI \-indent " STRING"
+Einrückung für umgebrochene Folgezeilen. Standard: zwei Leerzeichen.
+Mit
+.BI \-indent " \(dq\(dq"
+wird die Einrückung abgeschaltet.
+.TP
+.BI \-codepage " NAME"
+Zeichensatz des Druckers. Unterstützt werden
+.BR cp437 ,
+.BR cp850 ,
+.BR cp852 ,
+.BR cp858 ,
+.BR cp866
+und
+.BR cp1252 .
+Standard:
+.BR cp858 .
+.TP
+.BI \-input\-encoding " NAME"
+Encoding der Logdatei. Unterstützt werden
+.BR utf\-8 ,
+.BR utf8 ,
+.BR latin1 ,
+.B iso\-8859\-1
+sowie die oben genannten Codepages (z. B.
+.BR cp1252 ).
+Standard:
+.BR utf\-8 .
+.TP
+.B \-timestamps
+Jede Zeile mit einem Zeitstempel der Form
+.B [HH:MM:SS]
+präfixen.
+.TP
+.B \-no\-header
+Keinen Kopf mit Dateiname, Startzeit und Spaltenbreite drucken.
+.TP
+.BI \-feed " N"
+Anzahl der Zeilen, die am Ende vorgeschoben werden. Standard: 3.
+.TP
+.B \-cut
+Am Ende einen Teilschnitt ausführen. Standard: kein Schnitt.
+.TP
+.BI \-max\-lines " N"
+Nach
+.I N
+gedruckten Zeilen aufhören (0 = unbegrenzt).
+.TP
+.BR \-h ", " \-help
+Kurzhilfe mit allen Optionen anzeigen.
+.PP
+Langoptionen können alternativ mit zwei Bindestrichen geschrieben werden
+(z. B.
+.BR \-\-follow ).
+.SH BEISPIELE
+.TP
+.B logprint /var/log/syslog
+Die Datei einmalig vollständig drucken.
+.TP
+.B logprint \-f /var/log/myapp.log
+Nur neue Zeilen drucken, der Datei laufend folgen.
+.TP
+.B logprint \-f \-from\-start /var/log/myapp.log
+Erst den vorhandenen Inhalt drucken, dann weiter folgen.
+.TP
+.B tail \-F /var/log/syslog | logprint \-
+Aus einer Pipe drucken; eignet sich auch für Log-Rotation durch
+.BR tail .
+.TP
+.B logprint \-font b \-width 64 /var/log/app.log
+Mit Font B und 64 Zeichen pro Zeile drucken.
+.TP
+.B logprint \-timestamps \-max\-lines 50 /var/log/app.log
+Die ersten 50 Zeilen mit Zeitstempel drucken.
+.SH "EXIT-STATUS"
+.TP
+.B 0
+Erfolgreich.
+.TP
+.B 1
+Laufzeitfehler, z. B. Drucker nicht erreichbar oder Schreibfehler.
+.TP
+.B 2
+Fehlerhafte Kommandozeilenargumente.
+.SH HINWEISE
+.PP
+In der Web-Config des Druckers muss
+.B Secure Printing
+deaktiviert sein. Ist diese Funktion aktiv, werden externe Druckaufträge
+zwar angenommen, aber nicht gedruckt; der Drucker meldet dann
+.B EX_TIMEOUT
+bzw. "no printer response".
+.PP
+Im Follow-Modus bleibt die TCP-Verbindung offen. Der Drucker trennt sie
+nach 90 Sekunden Leerlauf. Beim nächsten Log-Eintrag verbindet sich
+.B logprint
+automatisch neu und initialisiert den Drucker erneut (Codepage, Font,
+Ausrichtung).
+.PP
+Log-Rotation und Truncation werden im Follow-Modus erkannt: Ändert sich
+der Inode oder wird die Datei kleiner als die bereits gelesene Position,
+öffnet
+.B logprint
+die Datei neu.
+.PP
+Der Drucker besitzt für RAW-Druck keine Authentifizierung. Port 9100
+sollte daher nicht aus dem Internet erreichbar sein, sondern nur im
+LAN oder über VPN.
+.SH "SIEHE AUCH"
+.BR tail (1),
+.BR lp (1),
+.BR lpr (1)
+.PP
+Epson TM-T20IV Technical Reference Guide und ESC/POS Command Reference.
+.SH AUTOR
+Stefan Schank <github@schank.it>
+.SH PROJEKT
+.UR https://github.com/schankst/logprint
+.UE
