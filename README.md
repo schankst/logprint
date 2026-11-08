@@ -1,11 +1,21 @@
 # logprint (Go)
 
 [![Go Version](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://go.dev/dl/)
-[![Release](https://img.shields.io/github/v/release/schankst/logprint?label=Release&color=2ea043)](https://github.com/schankst/logprint/releases/latest)
+[![Platform](https://img.shields.io/badge/platform-linux%20%7C%20windows%20%7C%20macOS-333333?logo=terminal&logoColor=white)](https://github.com/schankst/logprint/releases/latest)
+[![Go Report Card](https://goreportcard.com/badge/github.com/schankst/logprint)](https://goreportcard.com/report/github.com/schankst/logprint)
+[![Last Commit](https://img.shields.io/github/last-commit/schankst/logprint?color=9cf)](https://github.com/schankst/logprint/commits/main)
+
+[![Release](https://img.shields.io/github/v/release/schankst/logprint?label=Release&sort=semver&color=2ea043)](https://github.com/schankst/logprint/releases/latest)
+[![Release Date](https://img.shields.io/github/release-date/schankst/logprint?label=published&color=2ea043)](https://github.com/schankst/logprint/releases)
+[![Downloads](https://img.shields.io/github/downloads/schankst/logprint/total?label=downloads&color=informational)](https://github.com/schankst/logprint/releases)
 [![CI](https://github.com/schankst/logprint/actions/workflows/ci.yml/badge.svg)](https://github.com/schankst/logprint/actions/workflows/ci.yml)
 [![Release Build](https://github.com/schankst/logprint/actions/workflows/release.yml/badge.svg)](https://github.com/schankst/logprint/actions/workflows/release.yml)
 [![License](https://img.shields.io/github/license/schankst/logprint?color=blue)](LICENSE)
-[![Go Report Card](https://goreportcard.com/badge/github.com/schankst/logprint)](https://goreportcard.com/report/github.com/schankst/logprint)
+
+[![Stars](https://img.shields.io/github/stars/schankst/logprint?style=social)](https://github.com/schankst/logprint)
+[![Forks](https://img.shields.io/github/forks/schankst/logprint?style=social)](https://github.com/schankst/logprint)
+[![Contributors](https://img.shields.io/github/contributors/schankst/logprint?color=purple)](https://github.com/schankst/logprint/graphs/contributors)
+[![Repo Size](https://img.shields.io/github/repo-size/schankst/logprint?label=repo-size)](https://github.com/schankst/logprint)
 
 Prints log files on an Epson TM-T20IV (ESC/POS over TCP 9100).
 
