@@ -18,17 +18,17 @@ func TestWrapLine(t *testing.T) {
 	s := "2026-11-04 21:40:02 DEBUG Dies ist eine absichtlich sehr lange Logzeile, die deutlich mehr als achtundvierzig Zeichen enthaelt und deshalb sauber umgebrochen werden muss."
 	lines := wrapLine(s, 48, "  ")
 	if len(lines) < 2 {
-		t.Fatalf("erwartet mehrere Zeilen, got %d", len(lines))
+		t.Fatalf("expected multiple lines, got %d", len(lines))
 	}
 	for i, line := range lines {
 		if n := utf8.RuneCountInString(line); n > 48 {
-			t.Errorf("Zeile %d ist %d Zeichen lang: %q", i, n, line)
+			t.Errorf("line %d is %d chars long: %q", i, n, line)
 		}
 	}
-	// Fortsetzungszeilen muessen eingerueckt sein.
+	// Continuation lines must be indented.
 	for i := 1; i < len(lines); i++ {
 		if len(lines[i]) < 2 || lines[i][:2] != "  " {
-			t.Errorf("Zeile %d nicht eingerueckt: %q", i, lines[i])
+			t.Errorf("line %d not indented: %q", i, lines[i])
 		}
 	}
 }
@@ -37,7 +37,7 @@ func TestWrapLongWord(t *testing.T) {
 	lines := wrapLine("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", 48, "  ")
 	for i, line := range lines {
 		if n := utf8.RuneCountInString(line); n > 48 {
-			t.Errorf("Zeile %d zu lang (%d): %q", i, n, line)
+			t.Errorf("line %d too long (%d): %q", i, n, line)
 		}
 	}
 }
@@ -68,37 +68,37 @@ func TestEndSequence(t *testing.T) {
 		want []byte
 	}{
 		{
-			name: "normal ohne cut: nur vorschub",
+			name: "normal without cut: only feed",
 			c:    config{feed: 3},
 			want: []byte{esc, 'd', 3},
 		},
 		{
-			name: "normal mit cut",
+			name: "normal with cut",
 			c:    config{feed: 2, cut: true},
 			want: []byte{esc, 'd', 2, gs, 'V', 66, 0},
 		},
 		{
-			name: "follow ohne cut-on-exit: nichts",
+			name: "follow without cut-on-exit: nothing",
 			c:    config{follow: true, feed: 3},
 			want: nil,
 		},
 		{
-			name: "follow mit cut (wird ignoriert)",
+			name: "follow with cut (ignored)",
 			c:    config{follow: true, feed: 3, cut: true},
 			want: nil,
 		},
 		{
-			name: "follow mit cut-on-exit",
+			name: "follow with cut-on-exit",
 			c:    config{follow: true, feed: 3, cutOnExit: true},
 			want: []byte{esc, 'd', 3, gs, 'V', 66, 0},
 		},
 		{
-			name: "normal mit cut-on-exit",
+			name: "normal with cut-on-exit",
 			c:    config{feed: 1, cutOnExit: true},
 			want: []byte{esc, 'd', 1, gs, 'V', 66, 0},
 		},
 		{
-			name: "feed 0 mit cut",
+			name: "feed 0 with cut",
 			c:    config{feed: 0, cut: true},
 			want: []byte{esc, 'd', 0, gs, 'V', 66, 0},
 		},

@@ -1,13 +1,15 @@
-package main
-
-// logprint - druckt Logdateien auf einem Epson TM-T20IV (ESC/POS ueber TCP 9100).
+// Command logprint prints log files on an Epson TM-T20IV receipt printer
+// (ESC/POS over TCP port 9100). It is a small, dependency-free tool.
 //
-// Eigenschaften:
-//   - bricht lange Zeilen auf die Papierbreite um (Standard: 48 Zeichen, Font A)
-//   - schneidet standardmaessig NICHT (Cut nur mit -cut)
-//   - druckt eine Datei einmalig, von stdin oder wie "tail -f"
-//   - entfernt ANSI-Farbcodes und Steuerzeichen
-//   - nutzt CP858 (deutsche Umlaute + Euro), weitere Codepages moeglich
+// Features:
+//   - wraps long lines to the paper width (default: 48 characters, font A)
+//   - does NOT cut by default (cut only with -cut)
+//   - prints a file once, reads from stdin, or tails a file like "tail -f"
+//   - strips ANSI color codes and control characters
+//   - uses CP858 (German umlauts + Euro); other code pages are available
+//   - reads settings from a TOML file via -c so one instance per config
+//     can be started with different printers/settings
+package main
 
 import (
 	"bytes"
@@ -31,9 +33,14 @@ const (
 )
 
 var (
-	ansiEscape   = regexp.MustCompile(`\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\)|[@-_])`)
+	ansiEscape = regexp.MustCompile(`\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\)|[@-_])`)
+
+	// controlChars matches the characters that would reach the raw printer
+	// buffer unescaped and must therefore be dropped.
 	controlChars = regexp.MustCompile(`[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]`)
 
+	// unicodeReplacer maps common Unicode symbols that have no equivalent in
+	// an ESC/POS code page to plain ASCII look-alikes.
 	unicodeReplacer = strings.NewReplacer(
 		"\u2018", "'", "\u2019", "'", "\u201a", "'", "\u201b", "'",
 		"\u201c", `"`, "\u201d", `"`, "\u201e", `"`,
@@ -45,9 +52,12 @@ var (
 	)
 )
 
+// config holds the resolved print settings. Values come from defaults, a
+// -c TOML file, and command-line flags (flags win over the file).
 type config struct {
 	file          string
 	follow        bool
+	feedOnly      bool
 	fromStart     bool
 	host          string
 	port          int
@@ -64,16 +74,19 @@ type config struct {
 	maxLines      int
 }
 
+// encoder turns runes into the bytes of a specific ESC/POS code page.
 type encoder struct {
 	name   string
 	escNum byte
 	encode map[rune]byte
 }
 
+// newEncoder builds an encoder for the named code page and returns an error
+// if name is not one of the supported code pages.
 func newEncoder(name string) (*encoder, error) {
 	num, ok := codepageNumbers[name]
 	if !ok {
-		return nil, fmt.Errorf("unbekannte Codepage %q", name)
+		return nil, fmt.Errorf("unknown code page %q", name)
 	}
 	tbl := codepageTables[name]
 	m := make(map[rune]byte, 256)
@@ -88,6 +101,8 @@ func newEncoder(name string) (*encoder, error) {
 	return &encoder{name: name, escNum: num, encode: m}, nil
 }
 
+// encodeString maps a UTF-8 string to code-page bytes, using '?' for every
+// rune the code page cannot represent.
 func (e *encoder) encodeString(s string) []byte {
 	out := make([]byte, 0, len(s)+1)
 	for _, r := range s {
@@ -100,6 +115,9 @@ func (e *encoder) encodeString(s string) []byte {
 	return out
 }
 
+// sanitize removes ANSI escape sequences, control characters, tabs and
+// Unicode symbols, so log content cannot inject ESC/POS commands or produce
+// orphaned output on the receipt.
 func sanitize(line string) string {
 	line = ansiEscape.ReplaceAllString(line, "")
 	line = controlChars.ReplaceAllString(line, "")
@@ -108,7 +126,9 @@ func sanitize(line string) string {
 	return strings.TrimRight(line, "\r\n")
 }
 
-// wrapLine bricht an Wortgrenzen um; sehr lange Woerter werden hart getrennt.
+// wrapLine breaks line at word boundaries so that every returned fragment
+// fits into width; very long words are hard-split. Continuation lines are
+// prefixed with indent.
 func wrapLine(line string, width int, indent string) []string {
 	if line == "" {
 		return []string{""}
@@ -164,6 +184,8 @@ func wrapLine(line string, width int, indent string) []string {
 	return out
 }
 
+// decodeInput decodes a raw byte slice from the configured input encoding
+// into UTF-8. Unknown encodings fall back to interpreting the bytes as UTF-8.
 func decodeInput(b []byte, encoding string) string {
 	switch encoding {
 	case "utf-8", "utf8":
@@ -193,6 +215,8 @@ func decodeInput(b []byte, encoding string) string {
 	}
 }
 
+// printer manages the TCP connection to the printer and the init sequence
+// that sets code page, font, alignment and line spacing on connect.
 type printer struct {
 	addr string
 	enc  *encoder
@@ -200,6 +224,7 @@ type printer struct {
 	conn net.Conn
 }
 
+// newPrinter builds the init bytes and TCP address for the given config.
 func newPrinter(c *config, enc *encoder) *printer {
 	font := byte(0)
 	if c.font == "b" {
@@ -219,6 +244,7 @@ func newPrinter(c *config, enc *encoder) *printer {
 	}
 }
 
+// connect opens the TCP connection and sends the initialization bytes.
 func (p *printer) connect() error {
 	conn, err := net.DialTimeout("tcp", p.addr, 10*time.Second)
 	if err != nil {
@@ -232,6 +258,8 @@ func (p *printer) connect() error {
 	return nil
 }
 
+// send writes data to the printer, reconnecting with a short backoff when
+// the connection is lost, and reports the last error if all attempts fail.
 func (p *printer) send(data []byte) error {
 	if len(data) == 0 {
 		return nil
@@ -245,17 +273,18 @@ func (p *printer) send(data []byte) error {
 				continue
 			}
 		}
-		if _, err := p.conn.Write(data); err == nil {
-			return nil
-		} else {
+		if _, err := p.conn.Write(data); err != nil {
 			lastErr = err
 			p.close()
 			time.Sleep(2 * time.Second)
+			continue
 		}
+		return nil
 	}
 	return lastErr
 }
 
+// close drops the printer connection if one is open.
 func (p *printer) close() {
 	if p.conn != nil {
 		_ = p.conn.Close()
@@ -263,11 +292,14 @@ func (p *printer) close() {
 	}
 }
 
+// encodeLine encodes one source line for the printer and appends a newline.
 func encodeLine(enc *encoder, s string) []byte {
 	b := enc.encodeString(s)
 	return append(b, '\n')
 }
 
+// emitLine sanitizes, optionally timestamps and wraps line, then sends the
+// resulting fragments to the printer.
 func emitLine(p *printer, c *config, line string) error {
 	line = sanitize(line)
 	if c.timestamps {
@@ -281,11 +313,13 @@ func emitLine(p *printer, c *config, line string) error {
 	return nil
 }
 
+// printHeader sends a short header with the file name, start time and paper
+// width that separates one print job from the next.
 func printHeader(p *printer, c *config) error {
 	lines := []string{
 		"logprint  " + c.file,
 		"Start: " + time.Now().Format("2006-01-02 15:04:05"),
-		fmt.Sprintf("Breite: %d Zeichen (Font %s)", c.width, strings.ToUpper(c.font)),
+		fmt.Sprintf("Width: %d chars (font %s)", c.width, strings.ToUpper(c.font)),
 		strings.Repeat("-", c.width),
 	}
 	for _, line := range lines {
@@ -296,9 +330,8 @@ func printHeader(p *printer, c *config) error {
 	return nil
 }
 
-// endSequence liefert die Bytes, die beim Beenden noch an den Drucker gehen.
-// Normalbetrieb: Vorschub und optional Cut.
-// Follow-Modus: nur mit -cut-on-exit (Vorschub + Cut).
+// endSequence returns the bytes sent to the printer on exit: a paper feed
+// and the optional cut. In follow mode only a cut-on-exit triggers it.
 func endSequence(c *config) []byte {
 	var out []byte
 	if !c.follow || c.cutOnExit {
@@ -310,6 +343,9 @@ func endSequence(c *config) []byte {
 	return out
 }
 
+// streamFile reads the log line by line, emitting each one, and returns the
+// number of lines printed. In follow mode it keeps reading new data and
+// reopens the file on rotation or truncation. stop aborts the run.
 func streamFile(p *printer, c *config, stop <-chan struct{}) (int, error) {
 	var f *os.File
 	own := false
@@ -402,7 +438,7 @@ func streamFile(p *printer, c *config, stop <-chan struct{}) (int, error) {
 		case <-time.After(500 * time.Millisecond):
 		}
 
-		// Rotation oder Truncation erkennen.
+		// Follow mode: detect rotation or truncation of the underlying file.
 		if c.file != "-" {
 			newInfo, err := os.Stat(c.file)
 			if err != nil {
@@ -423,72 +459,167 @@ func streamFile(p *printer, c *config, stop <-chan struct{}) (int, error) {
 	}
 }
 
-func parseFlags() (*config, error) {
-	var c config
-	var followLong, followShort bool
+// flags holds the raw, parsed command-line values. Only flags set explicitly
+// are overlaid on a -c config file afterwards; the defaults matter only for
+// the invocation and the built-in default logic.
+type flags struct {
+	config        string
+	host          string
+	feedOnly      bool
+	port          int
+	follow        bool
+	followShort   bool
+	fromStart     bool
+	width         int
+	font          string
+	indent        string
+	codepage      string
+	inputEncoding string
+	timestamps    bool
+	noHeader      bool
+	feed          int
+	cut           bool
+	cutOnExit     bool
+	maxLines      int
+}
 
-	flag.StringVar(&c.host, "host", "192.168.1.185", "IP-Adresse des Druckers")
-	flag.IntVar(&c.port, "port", 9100, "TCP-Port des Druckers")
-	flag.BoolVar(&followLong, "follow", false, "wie tail -f folgen")
-	flag.BoolVar(&followShort, "f", false, "wie tail -f folgen (Kurzform)")
-	flag.BoolVar(&c.fromStart, "from-start", false, "mit -f zuerst vorhandenen Inhalt drucken")
-	flag.IntVar(&c.width, "width", 0, "Zeichen pro Zeile (Default: 48 bei Font A, 64 bei Font B)")
-	flag.StringVar(&c.font, "font", "a", "Font: a (48 Spalten) oder b (64 Spalten)")
-	flag.StringVar(&c.indent, "indent", "  ", "Einrueckung fuer umgebrochene Folgezeilen")
-	flag.StringVar(&c.codepage, "codepage", "cp858", "Zeichensatz: cp437, cp850, cp852, cp858, cp866, cp1252")
-	flag.StringVar(&c.inputEncoding, "input-encoding", "utf-8", "Encoding der Logdatei: utf-8, latin1, cp1252, ...")
-	flag.BoolVar(&c.timestamps, "timestamps", false, "jede Zeile mit [HH:MM:SS] prefixen")
-	flag.BoolVar(&c.noHeader, "no-header", false, "keinen Kopf mit Dateiname/Startzeit drucken")
-	flag.IntVar(&c.feed, "feed", 3, "Zeilen Vorschub am Ende")
-	flag.BoolVar(&c.cut, "cut", false, "am Ende eines einmaligen Drucks schneiden (Default: nicht schneiden)")
-	flag.BoolVar(&c.cutOnExit, "cut-on-exit", false, "beim Beenden Vorschub + Cut senden, auch im Follow-Modus (Ctrl-C/SIGTERM)")
-	flag.IntVar(&c.maxLines, "max-lines", 0, "nach N Zeilen aufhoeren (0 = unbegrenzt)")
+// parseFlags reads the command line, applies the -c TOML file, overrides it
+// with explicitly set flags and validates the result. A file to print is
+// taken from the positional argument or the config file's "file" key.
+func parseFlags() (*config, error) {
+	var rf flags
+
+	flag.StringVar(&rf.config, "c", "", "path to a TOML config file")
+	flag.StringVar(&rf.host, "host", "192.168.1.185", "printer IP address or hostname")
+	flag.IntVar(&rf.port, "port", 9100, "printer raw TCP port")
+	flag.BoolVar(&rf.follow, "follow", false, "tail the file like tail -f")
+	flag.BoolVar(&rf.followShort, "f", false, "tail the file like tail -f (short)")
+	flag.BoolVar(&rf.fromStart, "from-start", false, "with -f print existing content first")
+	flag.IntVar(&rf.width, "width", 0, "characters per line (default 48 for font A, 64 for font B)")
+	flag.StringVar(&rf.font, "font", "a", "font: a (48 columns) or b (64 columns)")
+	flag.StringVar(&rf.indent, "indent", "  ", "indent for wrapped continuation lines")
+	flag.StringVar(&rf.codepage, "codepage", "cp858", "code page: cp437, cp850, cp852, cp858, cp866, cp1252")
+	flag.StringVar(&rf.inputEncoding, "input-encoding", "utf-8", "log file encoding: utf-8, latin1, cp1252, ...")
+	flag.BoolVar(&rf.timestamps, "timestamps", false, "prefix each line with [HH:MM:SS]")
+	flag.BoolVar(&rf.noHeader, "no-header", false, "do not print the file-name/start-time header")
+	flag.IntVar(&rf.feed, "feed", 3, "lines of paper feed at the end")
+	flag.BoolVar(&rf.cut, "cut", false, "cut after a single run (default: no cut)")
+	flag.BoolVar(&rf.cutOnExit, "cut-on-exit", false, "feed + cut on exit, also in follow mode (Ctrl-C/SIGTERM)")
+	flag.IntVar(&rf.maxLines, "max-lines", 0, "stop after N lines (0 = unlimited)")
+	flag.BoolVar(&rf.feedOnly, "feed-only", false, "only feed paper (and optionally cut), print nothing")
 
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), `logprint - Logdateien auf einem Epson TM-T20IV drucken
+		fmt.Fprintf(flag.CommandLine.Output(), `logprint - print log files on an Epson TM-T20IV
 
-Aufruf:
-  logprint [Optionen] DATEI
-  logprint [Optionen] -
+Usage:
+  logprint [options] FILE
+  logprint [options] -
+  logprint -c CONFIG.toml [FILE]
 
-Beispiele:
+Examples:
   logprint /var/log/syslog
   logprint -f /var/log/myapp.log
   logprint -f --from-start /var/log/myapp.log
+  logprint -c kitchen.toml       # everything from a TOML file
+  logprint -feed-only -cut       # only feed + cut, print nothing
   tail -F /var/log/syslog | logprint -
 
-Optionen:
+Options (command-line flags win over a -c config file):
 `)
 		flag.PrintDefaults()
 		fmt.Fprint(flag.CommandLine.Output(), `
-Standardwerte ohne Optionen:
-  Ziel:            192.168.1.185:9100
-  Modus:           einmalig (kein Follow)
-  Startposition:   Dateianfang
-  Zeilenbreite:    48 Zeichen (Font A)
+Defaults without options:
+  Target:          192.168.1.185:9100
+  Mode:            single run (no follow)
+  Start position:  beginning of file
+  Line width:      48 characters (font A)
   Font:            a
-  Einrückung:      2 Leerzeichen
-  Codepage:        cp858
-  Input-Encoding:  utf-8
-  Kopf:            an
-  Zeitstempel:     aus
-  Vorschub:        3 Zeilen
-  Cut:             aus
-  Cut on exit:     aus
-  Max. Zeilen:     unbegrenzt
+  Indent:          2 spaces
+  Code page:       cp858
+  Input encoding:  utf-8
+  Header:          on
+  Timestamps:      off
+  Trailing feed:   3 lines
+  Cut:             off
+  Cut on exit:     off
+  Max lines:       unlimited
+  Config file:     none (-c)
 `)
 	}
 
 	flag.Parse()
-	c.follow = followLong || followShort
 
-	if flag.NArg() < 1 {
-		return nil, errors.New("Logdatei oder '-' als Argument angeben")
+	c := defaultConfig()
+
+	// Precedence: defaults < -c TOML file < explicitly set CLI flags.
+	if rf.config != "" {
+		if err := loadConfigFile(&c, rf.config); err != nil {
+			return nil, err
+		}
 	}
-	c.file = flag.Arg(0)
+
+	visited := map[string]bool{}
+	flag.Visit(func(f *flag.Flag) { visited[f.Name] = true })
+
+	if visited["host"] {
+		c.host = rf.host
+	}
+	if visited["port"] {
+		c.port = rf.port
+	}
+	if visited["follow"] || visited["f"] {
+		c.follow = rf.follow || rf.followShort
+	}
+	if visited["from-start"] {
+		c.fromStart = rf.fromStart
+	}
+	if visited["width"] {
+		c.width = rf.width
+	}
+	if visited["font"] {
+		c.font = rf.font
+	}
+	if visited["indent"] {
+		c.indent = rf.indent
+	}
+	if visited["codepage"] {
+		c.codepage = rf.codepage
+	}
+	if visited["input-encoding"] {
+		c.inputEncoding = rf.inputEncoding
+	}
+	if visited["timestamps"] {
+		c.timestamps = rf.timestamps
+	}
+	if visited["no-header"] {
+		c.noHeader = rf.noHeader
+	}
+	if visited["feed"] {
+		c.feed = rf.feed
+	}
+	if visited["cut"] {
+		c.cut = rf.cut
+	}
+	if visited["cut-on-exit"] {
+		c.cutOnExit = rf.cutOnExit
+	}
+	if visited["max-lines"] {
+		c.maxLines = rf.maxLines
+	}
+	if visited["feed-only"] {
+		c.feedOnly = rf.feedOnly
+	}
+
+	// A positional FILE argument overrides "file" from the config file.
+	if flag.NArg() >= 1 {
+		c.file = flag.Arg(0)
+	}
+	if c.file == "" && !c.feedOnly {
+		return nil, errors.New("pass a FILE argument, '-' or a 'file' key in the config file, or use -feed-only")
+	}
 
 	if c.font != "a" && c.font != "b" {
-		return nil, errors.New("-font muss 'a' oder 'b' sein")
+		return nil, errors.New("-font must be 'a' or 'b'")
 	}
 	if c.width == 0 {
 		if c.font == "b" {
@@ -498,7 +629,7 @@ Standardwerte ohne Optionen:
 		}
 	}
 	if c.width < 1 {
-		return nil, errors.New("-width muss groesser als 0 sein")
+		return nil, errors.New("-width must be greater than 0")
 	}
 	if c.feed < 0 {
 		c.feed = 0
@@ -510,21 +641,23 @@ Standardwerte ohne Optionen:
 		c.maxLines = 0
 	}
 	if c.follow && c.file == "-" {
-		return nil, errors.New("-follow funktioniert nur mit einer Datei, nicht mit stdin")
+		return nil, errors.New("-follow only works with a file, not with stdin")
 	}
 	if _, ok := codepageNumbers[c.codepage]; !ok {
-		return nil, fmt.Errorf("unbekannte Codepage %q", c.codepage)
+		return nil, fmt.Errorf("unknown code page %q", c.codepage)
 	}
 	switch c.inputEncoding {
 	case "utf-8", "utf8", "latin1", "iso-8859-1":
 	default:
 		if _, ok := codepageTables[c.inputEncoding]; !ok {
-			return nil, fmt.Errorf("unbekanntes Input-Encoding %q", c.inputEncoding)
+			return nil, fmt.Errorf("unknown input encoding %q", c.inputEncoding)
 		}
 	}
 	return &c, nil
 }
 
+// main parses the flags, opens the printer connection and streams the log
+// file to it, honouring SIGINT/SIGTERM and the configured end sequence.
 func main() {
 	c, err := parseFlags()
 	if err != nil {
@@ -539,6 +672,20 @@ func main() {
 	}
 
 	p := newPrinter(c, enc)
+
+	// Feed-only mode: send the paper feed (and optional cut), print nothing.
+	if c.feedOnly {
+		c.follow = false
+		if seq := endSequence(c); len(seq) > 0 {
+			if err := p.send(seq); err != nil {
+				fmt.Fprintln(os.Stderr, "logprint:", err)
+				os.Exit(1)
+			}
+		}
+		p.close()
+		os.Exit(0)
+	}
+
 	stop := make(chan struct{})
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
