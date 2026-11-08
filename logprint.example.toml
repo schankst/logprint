@@ -1,0 +1,35 @@
+# logprint.example.toml
+# Sample config file for "logprint -c logprint.example.toml".
+#
+# All keys may be written flat or under [printer].
+# Command-line flags take precedence over this file.
+# Keys that are not set keep their default values (see --help).
+
+[printer]
+# Target: Epson TM-T20IV (raw port 9100)
+# Replace PRINTER_IP with your printer's address.
+host = "PRINTER_IP"
+port = 9100
+
+# Resolution / layout
+font  = "a"        # a = 48 columns, b = 64 columns
+width = 48         # characters per line (0 = automatic from the font)
+indent = "  "      # indentation for wrapped continuation lines
+codepage = "cp858" # cp437, cp850, cp852, cp858, cp866, cp1252
+
+# Input
+input_encoding = "utf-8" # utf-8, latin1, cp1252, ...
+
+# Behavior
+follow     = false  # tail the file like tail -f
+from_start = false  # with follow: print existing content first
+timestamps = false  # [HH:MM:SS] before each line
+no_header  = false  # print the header with file name/start time
+feed       = 3      # lines of trailing feed
+cut        = false  # cut after a single run
+cut_on_exit = false # feed + cut on exit (Ctrl-C/SIGTERM)
+max_lines  = 0      # stop after N lines (0 = unlimited)
+# feed_only = false # only feed paper (and optionally cut), print nothing
+
+# optional: file to print (otherwise pass it as an argument)
+# file = "/var/log/app.log"
