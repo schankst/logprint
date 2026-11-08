@@ -1,6 +1,11 @@
 # logprint (Go)
 
+[![Go Version](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://go.dev/dl/)
+[![Release](https://img.shields.io/github/v/release/schankst/logprint?label=Release&color=2ea043)](https://github.com/schankst/logprint/releases/latest)
 [![CI](https://github.com/schankst/logprint/actions/workflows/ci.yml/badge.svg)](https://github.com/schankst/logprint/actions/workflows/ci.yml)
+[![Release Build](https://github.com/schankst/logprint/actions/workflows/release.yml/badge.svg)](https://github.com/schankst/logprint/actions/workflows/release.yml)
+[![License](https://img.shields.io/github/license/schankst/logprint?color=blue)](LICENSE)
+[![Go Report Card](https://goreportcard.com/badge/github.com/schankst/logprint)](https://goreportcard.com/report/github.com/schankst/logprint)
 
 Prints log files on an Epson TM-T20IV (ESC/POS over TCP 9100).
 
