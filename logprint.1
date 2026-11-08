@@ -1,249 +1,381 @@
 .\" Manpage for logprint
 .\" Copyright (c) 2026 Stefan Schank
-.TH LOGPRINT 1 "2026-11-04" "logprint 1.0.0" "User Commands"
+.TH LOGPRINT 1 "2026-05-12" "logprint 1.0.0" "User Commands"
 .SH NAME
-logprint \- Logdateien auf einem Epson TM-T20IV drucken
+logprint \- print log files on an Epson TM-T20IV
 .SH SYNOPSIS
 .B logprint
-[\fIOPTIONEN\fR] \fIDATEI\fR
+[\fIOPTIONS\fR] \fIFILE\fR
 .br
 .B logprint
-[\fIOPTIONEN\fR] \fB\-\fR
-.SH BESCHREIBUNG
+[\fIOPTIONS\fR] \fB\-\fR
+.br
 .B logprint
-liest eine Logdatei (oder die Standardeingabe) und druckt sie auf einem
-Epson TM-T20IV (oder einem kompatiblen ESC/POS-Bondrucker) über den
-RAW-Port 9100 aus.
+\fB\-c\fR \fICONFIG.toml\fR [\fIFILE\fR]
+.SH DESCRIPTION
+.B logprint
+reads a log file (or standard input) and prints it on an Epson TM-T20IV
+(or a compatible ESC/POS receipt printer) over the raw port 9100.
 .PP
-Die Zeilen werden bereits vor dem Senden an den Drucker umbrochen.
-Standardmäßig sind das 48 Zeichen pro Zeile (Font A, 80-mm-Papier).
-Folgezeilen werden um zwei Leerzeichen eingerückt. Sehr lange Wörter
-werden hart getrennt; umbrochen wird bevorzugt an Wortgrenzen.
+Lines are wrapped before they are sent to the printer. By default this
+means 48 characters per line (font A, 80 mm paper). Continuation lines
+are indented by two spaces. Very long words are hard-split; otherwise
+wrapping prefers word boundaries.
 .PP
-Im Normalbetrieb wird am Ende nur Papier vorgeschoben, nicht geschnitten.
-Ein Schnitt erfolgt mit
+In the normal mode only paper is fed forward at the end, nothing is cut.
+Cutting happens with
 .B \-cut
-(nach einem einmaligen Lauf) oder mit
+(after a single run) or with
 .B \-cut\-on\-exit
-(auch beim Beenden eines Follow-Laufs).
+(also when a follow run finishes).
 .PP
-ANSI-Farbcodes, Steuerzeichen und häufige Unicode-Sonderzeichen werden
-entfernt bzw. ersetzt, damit Log-Inhalte keine ESC/POS-Befehle
-einschleusen können. Die Ausgabe erfolgt standardmäßig in CP858
-(deutsche Umlaute und Euro).
-.SH OPTIONEN
+ANSI color codes, control characters and common Unicode symbols are
+stripped or replaced so that log content cannot smuggle in ESC/POS
+commands. Output uses CP858 by default (German umlauts and Euro);
+other code pages are available.
+.SH OPTIONS
+.TP
+.BI \-c " CONFIG.toml"
+Read a TOML configuration file and apply the values set there. This lets
+you start one instance per config file (for example one printer in the
+kitchen, another in the warehouse), each with its own invocation:
+.br
+.B logprint \-c kitchen.toml
+.br
+.B logprint \-c warehouse.toml
+.PP
+Explicitly set command-line flags take precedence over the file; keys
+missing from the file keep their default values. Allowed keys are (flat
+or under a
+.B [printer]
+section):
+.BR host ,
+.BR port ,
+.BR follow ,
+.BR from_start ,
+.BR width ,
+.BR font ,
+.BR indent ,
+.BR codepage ,
+.BR input_encoding ,
+.BR timestamps ,
+.BR no_header ,
+.BR feed ,
+.BR cut ,
+.BR cut_on_exit ,
+.BR max_lines
+and optionally
+.BR file .
+Default: no config file.
 .TP
 .BI \-host " HOST"
-IP-Adresse oder Hostname des Druckers. Standard:
+IP address or hostname of the printer. Default:
 .IR 192.168.1.185 .
 .TP
 .BI \-port " PORT"
-TCP-Port des RAW-Drucks. Standard:
+TCP port for raw printing. Default:
 .IR 9100 .
 .TP
 .BR \-f ", " \-follow
-Der Datei wie
+Tail the file like
 .B tail \-f
-folgen und nur neue Zeilen drucken. Standard: aus (einmaliger Lauf).
+and print only new lines. Default: off (single run).
 .TP
 .B \-from-start
-Nur zusammen mit
+Only together with
 .BR \-follow :
-zuerst den bereits vorhandenen Dateiinhalt drucken, dann folgen.
-Standard: aus.
+print the existing content of the file first, then keep following.
+Default: off.
 .TP
 .BI \-width " N"
-Zeichen pro Zeile. Standard: 48 bei Font A, 64 bei Font B.
-Für 58-mm-Papier sind 32 (Font A) bzw. 42 (Font B) üblich.
+Characters per line. Default: 48 for font A, 64 for font B.
+For 58 mm paper, 32 (font A) or 42 (font B) are common.
 .TP
 .BI \-font " a|b"
-Schriftart:
+Font:
 .B a
-(48 Spalten) oder
+(48 columns) or
 .B b
-(64 Spalten, kleinere Schrift). Standard:
+(64 columns, smaller type). Default:
 .BR a .
 .TP
 .BI \-indent " STRING"
-Einrückung für umgebrochene Folgezeilen. Standard: zwei Leerzeichen.
-Mit
+Indentation for wrapped continuation lines. Default: two spaces.
+Use
 .BI \-indent " \(dq\(dq"
-wird die Einrückung abgeschaltet.
+to disable the indentation.
 .TP
 .BI \-codepage " NAME"
-Zeichensatz des Druckers. Unterstützt werden
+Code page of the printer. Supported:
 .BR cp437 ,
 .BR cp850 ,
 .BR cp852 ,
 .BR cp858 ,
 .BR cp866
-und
+and
 .BR cp1252 .
-Standard:
+Default:
 .BR cp858 .
 .TP
 .BI \-input\-encoding " NAME"
-Encoding der Logdatei. Unterstützt werden
+Encoding of the log file. Supported:
 .BR utf\-8 ,
 .BR utf8 ,
 .BR latin1 ,
 .B iso\-8859\-1
-sowie die oben genannten Codepages (z. B.
+and the code pages above (for example
 .BR cp1252 ).
-Standard:
+Default:
 .BR utf\-8 .
 .TP
 .B \-timestamps
-Jede Zeile mit einem Zeitstempel der Form
-.B [HH:MM:SS]
-präfixen. Standard: aus.
+Prefix each line with a time stamp of the form
+.B [HH:MM:SS].
+Default: off.
 .TP
 .B \-no\-header
-Keinen Kopf mit Dateiname, Startzeit und Spaltenbreite drucken. Standard:
-aus (der Kopf wird gedruckt).
+Do not print a header with file name, start time and column width.
+Default: off (the header is printed).
 .TP
 .BI \-feed " N"
-Anzahl der Zeilen, die am Ende vorgeschoben werden. Standard: 3.
+Number of lines fed forward at the end. Default: 3.
 .TP
 .B \-cut
-Am Ende eines einmaligen Laufs einen Teilschnitt ausführen. Standard: kein
-Schnitt. Im Follow-Modus wird diese Option ignoriert; dort
+Perform a partial cut at the end of a single run. Default: no cut. In
+follow mode this option is ignored; use
 .B \-cut\-on\-exit
-verwenden.
+there.
 .TP
 .B \-cut\-on\-exit
-Beim Beenden Vorschub und Teilschnitt senden, auch im Follow-Modus
-(z. B. nach Ctrl-C oder SIGTERM). Nicht bei SIGKILL oder Stromausfall.
-Die Anzahl der Vorschubzeilen steuert
+Send a feed and a partial cut when the program exits, also in follow
+mode (for example after Ctrl-C or SIGTERM). Not triggered by SIGKILL or
+a power loss. The number of feed lines is controlled by
 .BR \-feed .
-Standard: aus.
+Default: off.
 .TP
 .BI \-max\-lines " N"
-Nach
+Stop after
 .I N
-gedruckten Zeilen aufhören. Standard: 0 (unbegrenzt).
+printed lines. Default: 0 (unlimited).
+.TP
+.B \-feed-only
+Do not print anything; only feed paper and optionally cut, then exit. The
+number of feed lines comes from
+.BR \-feed
+(default 3); add
+.B \-cut
+or
+.B \-cut\-on\-exit
+for a partial cut. No FILE argument is required. This is useful after a
+paper jam, before a cut, or when you only want to advance the paper.
 .TP
 .BR \-h ", " \-help
-Kurzhilfe mit allen Optionen anzeigen.
+Print the short help with all options.
 .PP
-Langoptionen können alternativ mit zwei Bindestrichen geschrieben werden
-(z. B.
+Long options may alternatively be written with a double dash (for example
 .BR \-\-follow ).
-.SH STANDARDWERTE
-Werden keine Optionen angegeben, gilt:
+.SH CONFIGURATION FILES
+The
+.B \-c
+option reads a TOML file. Every key can be written flat or grouped under
+a
+.B [printer]
+section. A minimal file looks like this:
+.PP
+.nf
+# kitchen.toml
+[printer]
+host       = "192.168.1.185"
+port       = 9100
+font       = "a"
+width      = 48
+codepage   = "cp858"
+follow     = false
+timestamps = true
+feed       = 3
+file       = "/var/log/app.log"
+.fi
+.PP
+Precedence is: defaults < config file < explicitly set command-line flags.
+A missing key keeps its default; a positional FILE argument overrides a
+.B file
+key from the config. The example below starts
+.B logprint
+from the kitchen config but, for this single run, targets a different
+printer and prints a different file:
+.PP
+.nf
+logprint \-c kitchen.toml \-host 192.168.1.200 /tmp/demo.log
+.fi
+.PP
+Here the
+.B \-host
+flag overrides the value from
+.B kitchen.toml
+and the positional
+.I /tmp/demo.log
+overrides the
+.B file
+key, while width, font, codepage and the rest still come from the file.
+.SH STANDARD DEFAULTS
+When no options are given, the following applies:
 .TP
-.B Ziel
+.B Target
 192.168.1.185:9100
 .TP
-.B Modus
-einmalig, Datei komplett drucken (kein Follow)
+.B Mode
+single run, print the whole file (no follow)
 .TP
-.B Startposition
-Dateianfang
+.B Start position
+beginning of the file
 .TP
-.B Zeilenbreite
-48 Zeichen (Font A, 80 mm)
+.B Line width
+48 characters (font A, 80 mm)
 .TP
 .B Font
 a
 .TP
-.B Einrückung
-zwei Leerzeichen
+.B Indentation
+two spaces
 .TP
-.B Codepage
-cp858 (Umlaute und Euro)
+.B Code page
+cp858 (umlauts and Euro)
 .TP
-.B Input-Encoding
+.B Input encoding
 utf-8
 .TP
-.B Kopf
-an (Dateiname, Startzeit, Spaltenbreite)
+.B Header
+on (file name, start time, column width)
 .TP
-.B Zeitstempel
-aus
+.B Timestamps
+off
 .TP
-.B Vorschub am Ende
-3 Zeilen
+.B Trailing feed
+3 lines
 .TP
-.B Schnitt am Ende
-aus
+.B Cut at end
+off
 .TP
-.B Schnitt beim Beenden
-aus
+.B Cut on exit
+off
 .TP
-.B Maximale Zeilenzahl
-unbegrenzt
+.B Maximum lines
+unlimited
+.TP
+.B Config file
+none (option \fB\-c\fR)
 .PP
-Konkret: Ohne Optionen druckt
+Concretely: without options
 .B logprint
-eine Datei einmalig vollständig, mit Kopf, 48 Zeichen pro Zeile,
-ohne Zeitstempel, mit drei Zeilen Vorschub und ohne Schnitt.
-.SH BEISPIELE
+prints a file once, completely, with header, 48 characters per line,
+no timestamps, three lines of trailing feed and no cut.
+.SH EXAMPLES
 .TP
 .B logprint /var/log/syslog
-Die Datei einmalig vollständig drucken.
+Print the file once, completely.
 .TP
 .B logprint \-f /var/log/myapp.log
-Nur neue Zeilen drucken, der Datei laufend folgen.
+Print only new lines, tailing the file.
 .TP
 .B logprint \-f \-from\-start /var/log/myapp.log
-Erst den vorhandenen Inhalt drucken, dann weiter folgen.
+Print the existing content first, then keep following.
 .TP
 .B logprint \-f \-cut\-on\-exit /var/log/myapp.log
-Der Datei folgen und beim Beenden (Ctrl-C/SIGTERM) noch Vorschub und
-Teilschnitt senden.
+Tail the file and, when it exits (Ctrl-C/SIGTERM), send a feed and a
+partial cut.
 .TP
 .B tail \-F /var/log/syslog | logprint \-
-Aus einer Pipe drucken; eignet sich auch für Log-Rotation durch
+Print from a pipe; also survives log rotation handled by
 .BR tail .
 .TP
 .B logprint \-font b \-width 64 /var/log/app.log
-Mit Font B und 64 Zeichen pro Zeile drucken.
+Print with font B and 64 characters per line.
 .TP
 .B logprint \-timestamps \-max\-lines 50 /var/log/app.log
-Die ersten 50 Zeilen mit Zeitstempel drucken.
-.SH "EXIT-STATUS"
+Print the first 50 lines with time stamps.
+.TP
+.B logprint \-feed-only
+Advance the paper by the configured feed (default 3 lines) without printing
+anything.
+.TP
+.B logprint \-feed-only \-feed 5 \-cut
+Advance the paper 5 lines and then cut, without printing anything.
+.SS "Mixing a config file with command-line flags"
+.TP
+.B logprint \-c kitchen.toml
+Start everything from
+.B kitchen.toml
+(such as
+.BR host ,
+.BR width ,
+.BR font ,
+.BR codepage ,
+.BR follow ).
+Useful when the same configuration is started multiple times (for
+example as a systemd unit).
+.TP
+.B logprint \-c kitchen.toml \-host 192.168.1.200
+Start from
+.B kitchen.toml
+but override the printer address for this run.
+.TP
+.B logprint \-c kitchen.toml \-width 64 \-font b
+Start from
+.B kitchen.toml
+but print wider (font B, 64 columns) for this run.
+.TP
+.B logprint \-c kitchen.toml \-f \-no\-header /tmp/demo.log
+Start from
+.B kitchen.toml
+but enable follow mode, suppress the header and print
+.I /tmp/demo.log
+instead of the file configured in the file.
+.TP
+.B logprint \-c kitchen.toml \-timestamps
+Start from
+.B kitchen.toml
+and enable per-line timestamps, overriding the file value.
+.SH "EXIT STATUS"
 .TP
 .B 0
-Erfolgreich.
+Success.
 .TP
 .B 1
-Laufzeitfehler, z. B. Drucker nicht erreichbar oder Schreibfehler.
+Runtime error, for example the printer is unreachable or a write failed.
 .TP
 .B 2
-Fehlerhafte Kommandozeilenargumente.
-.SH HINWEISE
+Invalid command-line arguments.
+.SH REMARKS
 .PP
-In der Web-Config des Druckers muss
+In the printer's web config,
 .B Secure Printing
-deaktiviert sein. Ist diese Funktion aktiv, werden externe Druckaufträge
-zwar angenommen, aber nicht gedruckt; der Drucker meldet dann
+must be disabled. If it is active, external print jobs are accepted but
+not printed; the printer then reports
 .B EX_TIMEOUT
-bzw. "no printer response".
+or "no printer response".
 .PP
-Im Follow-Modus bleibt die TCP-Verbindung offen. Der Drucker trennt sie
-nach 90 Sekunden Leerlauf. Beim nächsten Log-Eintrag verbindet sich
+In follow mode the TCP connection stays open. The printer drops it after
+90 seconds of idle time. On the next log entry,
 .B logprint
-automatisch neu und initialisiert den Drucker erneut (Codepage, Font,
-Ausrichtung).
+reconnects automatically and initializes the printer again (code page,
+font, alignment).
 .PP
-Log-Rotation und Truncation werden im Follow-Modus erkannt: Ändert sich
-der Inode oder wird die Datei kleiner als die bereits gelesene Position,
-öffnet
+Log rotation and truncation are detected in follow mode: if the inode
+changes or the file becomes smaller than the already-read position,
 .B logprint
-die Datei neu.
+reopens the file.
 .PP
-Der Drucker besitzt für RAW-Druck keine Authentifizierung. Port 9100
-sollte daher nicht aus dem Internet erreichbar sein, sondern nur im
-LAN oder über VPN.
-.SH "SIEHE AUCH"
+The printer has no authentication for raw printing. Port 9100 should
+therefore not be reachable from the internet, only from the LAN or via
+VPN.
+.SH "SEE ALSO"
 .BR tail (1),
 .BR lp (1),
 .BR lpr (1)
 .PP
-Epson TM-T20IV Technical Reference Guide und ESC/POS Command Reference.
-.SH AUTOR
+Epson TM-T20IV Technical Reference Guide and ESC/POS Command Reference.
+.SH AUTHOR
 Stefan Schank <github@schank.it>
-.SH PROJEKT
+.SH PROJECT
 .UR https://github.com/schankst/logprint
 .UE

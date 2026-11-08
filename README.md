@@ -2,16 +2,16 @@
 
 [![CI](https://github.com/schankst/logprint/actions/workflows/ci.yml/badge.svg)](https://github.com/schankst/logprint/actions/workflows/ci.yml)
 
-Druckt Logdateien auf einem Epson TM-T20IV (ESC/POS über TCP 9100).
+Prints log files on an Epson TM-T20IV (ESC/POS over TCP 9100).
 
-- bricht lange Zeilen auf die Papierbreite um (Default: 48 Zeichen, Font A, 80 mm)
-- schneidet standardmäßig **nicht**
-- druckt eine Datei einmalig, von stdin oder wie `tail -f`
-- entfernt ANSI-Farbcodes und Steuerzeichen
-- CP858 (deutsche Umlaute + Euro), weitere Codepages möglich
-- keine externen Abhängigkeiten, statisch linkbar
+- wraps long lines to the paper width (default: 48 characters, font A, 80 mm)
+- does **not** cut by default
+- prints a file once, from stdin or tails it like `tail -f`
+- strips ANSI color codes and control characters
+- CP858 (German umlauts + Euro), other code pages available
+- no external dependencies, statically linkable
 
-## Bauen
+## Building
 
 ```bash
 cd logprint-go
@@ -19,9 +19,9 @@ go test ./...
 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o logprint .
 ```
 
-Das Ergebnis ist ein statisch gelinktes Binary (`./logprint`, ca. 2,6 MB).
+The result is a statically linked binary (`./logprint`, approx. 2.6 MB).
 
-Cross-Compiling (ohne CGO):
+Cross compiling (without CGO):
 
 ```bash
 CGO_ENABLED=0 GOOS=linux   GOARCH=arm64 go build -o logprint-linux-arm64 .
@@ -29,87 +29,147 @@ CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build -o logprint-darwin-arm64 .
 CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o logprint.exe .
 ```
 
-## Benutzung
+## Usage
 
 ```bash
-# ganze Datei einmal drucken
+# print a whole file once
 ./logprint /var/log/syslog
 
-# laufend folgen (nur neue Zeilen)
+# tail the file (only new lines)
 ./logprint -f /var/log/myapp.log
 
-# vorhandenen Inhalt drucken und dann folgen
+# print existing content first, then tail
 ./logprint -f --from-start /var/log/myapp.log
 
-# aus einer Pipe
+# print from a pipe
 tail -F /var/log/syslog | ./logprint -
 
-# beim Beenden von -f (Ctrl-C/SIGTERM) noch schneiden
+# cut when -f exits (Ctrl-C/SIGTERM)
 ./logprint -f -cut-on-exit /var/log/myapp.log
 
-# einmalig drucken und am Ende schneiden
+# print once and cut at the end
 ./logprint -cut /var/log/syslog
+
+# only feed paper (and optionally cut), print nothing
+./logprint -feed-only
+./logprint -feed-only -feed 5 -cut
 ```
 
-## Standardwerte
+## Defaults
 
-Werden keine Optionen angegeben, gilt:
+When no options are given, the following applies:
 
-| Einstellung | Standard |
+| Setting | Default |
 |---|---|
-| Ziel | `192.168.1.185:9100` |
-| Modus | einmalig, Datei komplett drucken (kein Follow) |
-| Startposition | Dateianfang |
-| Zeilenbreite | 48 Zeichen (Font A, 80 mm) |
+| Target | `192.168.1.185:9100` |
+| Mode | single run, print the whole file (no follow) |
+| Start position | beginning of the file |
+| Line width | 48 characters (font A, 80 mm) |
 | Font | `a` |
-| Einrückung | 2 Leerzeichen |
-| Codepage | `cp858` (Umlaute + Euro) |
-| Input-Encoding | `utf-8` |
-| Kopf mit Dateiname/Startzeit | an |
-| Zeitstempel pro Zeile | aus |
-| Vorschub am Ende | 3 Zeilen |
-| Schnitt am Ende | aus |
-| Schnitt beim Beenden | aus |
-| Maximale Zeilenzahl | unbegrenzt |
+| Indentation | 2 spaces |
+| Code page | `cp858` (umlauts + Euro) |
+| Input encoding | `utf-8` |
+| Header with file name/start time | on |
+| Timestamp per line | off |
+| Trailing feed | 3 lines |
+| Cut at end | off |
+| Cut on exit | off |
+| Maximum lines | unlimited |
 
-Konkret bedeutet das: `logprint /var/log/app.log` druckt die Datei
-einmalig vollständig, mit Kopf, 48 Zeichen pro Zeile, ohne Zeitstempel,
-mit 3 Zeilen Vorschub und **ohne Schnitt**.
+Concretely this means: `logprint /var/log/app.log` prints the file once,
+completely, with a header, 48 characters per line, no timestamps, 3 lines
+of trailing feed and **no cut**.
 
-## Optionen
+## Options
 
-| Option | Bedeutung | Default |
+| Option | Meaning | Default |
 |---|---|---|
-| `-host HOST` | IP-Adresse oder Hostname des Druckers | `192.168.1.185` |
-| `-port PORT` | TCP-Port des RAW-Drucks | `9100` |
-| `-f`, `-follow` | wie `tail -f` folgen | aus (einmaliger Lauf) |
-| `-from-start` | mit `-f` zuerst vorhandenen Inhalt drucken | aus |
-| `-width N` | Zeichen pro Zeile | `48` (Font A), `64` (Font B) |
-| `-font a\|b` | Schriftart | `a` |
-| `-indent STRING` | Einrückung für umgebrochene Folgezeilen | `"  "` (2 Leerzeichen) |
-| `-codepage NAME` | Zeichensatz: `cp437`, `cp850`, `cp852`, `cp858`, `cp866`, `cp1252` | `cp858` |
-| `-input-encoding NAME` | Encoding der Logdatei: `utf-8`, `latin1`, `cp1252`, … | `utf-8` |
-| `-timestamps` | jede Zeile mit `[HH:MM:SS]` prefixen | aus |
-| `-no-header` | keinen Kopf mit Dateiname/Startzeit drucken | aus (Kopf wird gedruckt) |
-| `-feed N` | Zeilen Vorschub am Ende | `3` |
-| `-cut` | am Ende eines einmaligen Drucks schneiden | aus |
-| `-cut-on-exit` | beim Beenden Vorschub + Cut senden, auch bei `-f` (Ctrl-C/SIGTERM) | aus |
-| `-max-lines N` | nach N Zeilen aufhören | `0` (unbegrenzt) |
+| `-host HOST` | IP address or hostname of the printer | `192.168.1.185` |
+| `-port PORT` | TCP port for raw printing | `9100` |
+| `-f`, `-follow` | tail the file like `tail -f` | off (single run) |
+| `-from-start` | with `-f` print existing content first | off |
+| `-width N` | characters per line | `48` (font A), `64` (font B) |
+| `-font a\|b` | font | `a` |
+| `-indent STRING` | indent for wrapped continuation lines | `"  "` (2 spaces) |
+| `-codepage NAME` | code page: `cp437`, `cp850`, `cp852`, `cp858`, `cp866`, `cp1252` | `cp858` |
+| `-input-encoding NAME` | log file encoding: `utf-8`, `latin1`, `cp1252`, … | `utf-8` |
+| `-timestamps` | prefix each line with `[HH:MM:SS]` | off |
+| `-no-header` | do not print the file-name/start-time header | off (header is printed) |
+| `-feed N` | lines of trailing feed | `3` |
+| `-cut` | cut after a single run | off |
+| `-cut-on-exit` | feed + cut on exit, also with `-f` (Ctrl-C/SIGTERM) | off |
+| `-max-lines N` | stop after N lines | `0` (unlimited) |
+| `-feed-only` | only feed paper, optionally cut, print nothing (no FILE needed) | off |
+| `-c CONFIG.toml` | read settings from a TOML file | none |
 
-## Hinweise
+## Configuration files (TOML)
 
-- Bei **58-mm-Papier**: `-width 32` (Font A) bzw. `-width 42`.
-- „Secure Printing" in der Web-Config des Druckers muss **deaktiviert** bleiben,
-  sonst blockiert der Drucker alle externen Aufträge.
-- Im Follow-Modus bleibt die TCP-Verbindung offen. Der Drucker trennt sie nach
-  90 s Leerlauf; `logprint` erkennt das und verbindet sich beim nächsten
-  Log-Eintrag automatisch neu (inkl. erneuter ESC/POS-Initialisierung).
-- Log-Rotation und Truncation werden im Follow-Modus erkannt.
+With the `-c CONFIG.toml` option the settings are taken from a TOML
+file. This lets you start the program multiple times, each with its own
+config file – for example one printer in the kitchen, one in the
+warehouse:
+
+```bash
+logprint -c kitchen.toml
+logprint -c warehouse.toml
+```
+
+All keys may be written flat or under a `[printer]` section. Allowed are
+`host`, `port`, `follow`, `from_start`, `width`, `font`, `indent`,
+`codepage`, `input_encoding`, `timestamps`, `no_header`, `feed`, `cut`,
+`cut_on_exit`, `max_lines` and optionally `file`.
+
+```toml
+# warehouse.toml – receipt printer in the warehouse
+[printer]
+host        = "192.168.1.190"
+port        = 9100
+font        = "b"
+width       = 64
+follow      = true
+from_start  = false
+timestamps  = true
+feed        = 2
+cut_on_exit = true
+# file = "/var/log/warehouse.log"   # optional, otherwise pass as argument
+```
+
+**Precedence:** command-line flags win over the file, the file wins over
+the defaults. Keys missing from the file keep their default values. A
+positional `FILE` argument overrides a `file` set in the configuration.
+A sample file is included as [`logprint.example.toml`](logprint.example.toml)
+in the project.
+
+### Config plus overrides (examples)
+
+```bash
+# everything from the config file
+logprint -c kitchen.toml
+
+# override only the printer address for this run
+logprint -c kitchen.toml -host 192.168.1.200
+
+# print wider (font B, 64 columns) for this run
+logprint -c kitchen.toml -width 64 -font b
+
+# representative file, no header, follow mode
+logprint -c kitchen.toml -f -no-header /tmp/demo.log
+```
+
+## Notes
+
+- For **58 mm paper**: `-width 32` (font A) or `-width 42`.
+- **Secure Printing** in the printer's web config must stay **disabled**,
+  otherwise the printer blocks all external jobs.
+- In follow mode the TCP connection stays open. The printer drops it after
+  90 s of idle time; `logprint` detects this and reconnects automatically on
+  the next log entry (including renewed ESC/POS initialization).
+- Log rotation and truncation are detected in follow mode.
 
 ## Manpage
 
-Die Manpage liegt als `logprint.1` im Projekt. Installation in das
-Benutzerverzeichnis (ohne root):
+The man page lives in the project as `logprint.1`. Installation into the
+user directory (without root):
 
 ```bash
 mkdir -p ~/.local/share/man/man1
@@ -118,17 +178,17 @@ mandb -q ~/.local/share/man
 man logprint
 ```
 
-Alternativ direkt aus dem Projekt anzeigen:
+Alternatively, view it directly from the project:
 
 ```bash
 man -l logprint.1
 ```
 
-## systemd (Beispiel)
+## systemd (example)
 
 ```ini
 [Unit]
-Description=logprint - myapp.log auf Bon-Drucker
+Description=logprint - myapp.log on receipt printer
 After=network-online.target
 
 [Service]
@@ -140,8 +200,8 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
-## Lizenz
+## License
 
-MIT – siehe [LICENSE](LICENSE).
+MIT – see [LICENSE](LICENSE).
 
 Copyright (c) 2026 Stefan Schank
