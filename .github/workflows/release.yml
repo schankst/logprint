@@ -1,0 +1,58 @@
+name: Release
+
+# Builds statically linked, GOAMD64=v2 (for amd64) binaries and attaches them
+# to a GitHub release as soon as a version tag (v*) is pushed. Also generates
+# a sha256 checksums file.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write # needed to create/update the release and upload assets
+
+jobs:
+  release:
+    name: Build & attach binaries
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Build binaries
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          set -eu
+          build() { # build <goos> <goarch> <goamd64> <suffix>
+            local goos="$1" goarch="$2" goamd64="$3" suffix="$4"
+            local name="logprint-${goos}-${goarch}${suffix}"
+            GOAMD64="$goamd64" GOOS="$goos" GOARCH="$goarch" \
+              go build -trimpath -ldflags="-s -w" -o "dist/${name}" .
+            echo "built ${name}"
+          }
+          build linux  amd64 v2 ""
+          build linux  arm64 v1 ""
+          build windows amd64 v2 ".exe"
+          build darwin arm64 v1 ""
+
+      - name: Smoke test (linux/amd64)
+        run: ./dist/logprint-linux-amd64 -h >/dev/null
+
+      - name: Generate checksums
+        working-directory: dist
+        run: sha256sum logprint-* > SHA256SUMS.txt
+
+      - name: Upload assets to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/logprint-*,dist/SHA256SUMS.txt
+          fail_on_unmatched_files: true
